@@ -1,6 +1,7 @@
 """iOS PhoneAgent class for orchestrating iOS phone automation."""
 
 import json
+import time
 import traceback
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -26,8 +27,8 @@ class IOSAgentConfig:
     verbose: bool = True
 
     def __post_init__(self):
-        if self.system_prompt is None:
-            self.system_prompt = get_system_prompt(self.lang)
+        # We handle default system prompt in Agent initialization
+        pass
 
 
 @dataclass
@@ -73,6 +74,11 @@ class IOSPhoneAgent:
     ):
         self.model_config = model_config or ModelConfig()
         self.agent_config = agent_config or IOSAgentConfig()
+
+        if self.agent_config.system_prompt is None:
+            self.agent_config.system_prompt = get_system_prompt(
+                self.agent_config.lang, self.model_config.api_type
+            )
 
         self.model_client = ModelClient(self.model_config)
 
@@ -193,6 +199,11 @@ class IOSPhoneAgent:
 
         # Get model response
         try:
+            msgs = get_messages(self.agent_config.lang)
+            if self.agent_config.verbose:
+                print("\n" + "=" * 50)
+                print(f"💭 {msgs['thinking']}:")
+                print("-" * 50)
             response = self.model_client.request(self._context)
         except Exception as e:
             if self.agent_config.verbose:
@@ -207,19 +218,21 @@ class IOSPhoneAgent:
 
         # Parse action from response
         try:
-            action = parse_action(response.action)
+            if response.structured_action:
+                action = response.structured_action
+            elif response.action:
+                action = parse_action(response.action)
+            else:
+                # Fallback for empty response
+                action = finish(message="Model returned empty action")
         except ValueError:
             if self.agent_config.verbose:
                 traceback.print_exc()
             action = finish(message=response.action)
 
         if self.agent_config.verbose:
-            # Print thinking process
+            # Print action
             msgs = get_messages(self.agent_config.lang)
-            print("\n" + "=" * 50)
-            print(f"💭 {msgs['thinking']}:")
-            print("-" * 50)
-            print(response.thinking)
             print("-" * 50)
             print(f"🎯 {msgs['action']}:")
             print(json.dumps(action, ensure_ascii=False, indent=2))
@@ -227,6 +240,28 @@ class IOSPhoneAgent:
 
         # Remove image from context to save space
         self._context[-1] = MessageBuilder.remove_images_from_message(self._context[-1])
+
+        # Add assistant response to context
+        tool_call_id = response.tool_call_id or f"call_{int(time.time())}"
+        tool_calls = None
+        if response.structured_action:
+            # If we used a native tool call, we must record it in tool_calls
+            tool_calls = [{
+                "id": tool_call_id,
+                "type": "function",
+                "function": {
+                    "name": response.structured_action.get("action", "Tap"),
+                    "arguments": json.dumps({k: v for k, v in response.structured_action.items() if k not in ["_metadata", "action"]}, ensure_ascii=False)
+                }
+            }]
+
+        self._context.append(
+            MessageBuilder.create_assistant_message(
+                f"<think>{response.thinking}</think><answer>{response.action}</answer>",
+                thought_signature=response.thought_signature,
+                tool_calls=tool_calls
+            )
+        )
 
         # Execute action
         try:
@@ -240,12 +275,15 @@ class IOSPhoneAgent:
                 finish(message=str(e)), screenshot.width, screenshot.height
             )
 
-        # Add assistant response to context
-        self._context.append(
-            MessageBuilder.create_assistant_message(
-                f"<think>{response.thinking}</think><answer>{response.action}</answer>"
+        # Add Tool Response to context (Required for Gemini/OpenAI Tool Call flow)
+        if response.structured_action:
+            self._context.append(
+                MessageBuilder.create_tool_message(
+                    name=response.structured_action.get("action", "Tap"),
+                    content=json.dumps({"status": "success" if result.success else "failed", "message": result.message}, ensure_ascii=False),
+                    tool_call_id=tool_call_id
+                )
             )
-        )
 
         # Check if finished
         finished = action.get("_metadata") == "finish" or result.should_finish

@@ -20,8 +20,7 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
-from openai import OpenAI
-
+import requests
 from phone_agent.agent_ios import IOSAgentConfig, IOSPhoneAgent
 from phone_agent.config.apps_ios import list_supported_apps
 from phone_agent.model import ModelConfig
@@ -159,22 +158,26 @@ def check_system_requirements(wda_url: str = "http://localhost:8100") -> bool:
     return all_passed
 
 
-def check_model_api(base_url: str, api_key: str, model_name: str) -> bool:
+def check_model_api(
+    base_url: str, api_key: str, model_name: str, api_type: str = "openai"
+) -> bool:
     """
     Check if the model API is accessible and the specified model exists.
 
     Checks:
     1. Network connectivity to the API endpoint
-    2. Model exists in the available models list
+    2. Model exists
 
     Args:
         base_url: The API base URL
+        api_key: The API key for authentication
         model_name: The model name to check
+        api_type: 'openai' or 'gemini'
 
     Returns:
         True if all checks pass, False otherwise.
     """
-    print("🔍 Checking model API...")
+    print(f"🔍 Checking model API ({api_type})...")
     print("-" * 50)
 
     all_passed = True
@@ -182,31 +185,40 @@ def check_model_api(base_url: str, api_key: str, model_name: str) -> bool:
     # Check 1: Network connectivity
     print(f"1. Checking API connectivity ({base_url})...", end=" ")
     try:
-        # Parse the URL to get host and port
-        parsed = urlparse(base_url)
-
-        # Create OpenAI client
-        client = OpenAI(base_url=base_url, api_key=api_key, timeout=10.0)
-
-        # Try to list models (this tests connectivity)
-        models_response = client.models.list()
-        available_models = [model.id for model in models_response.data]
-
-        print("✅ OK")
-
-        # Check 2: Model exists
-        print(f"2. Checking model '{model_name}'...", end=" ")
-        if model_name in available_models:
+        if api_type == "gemini":
+            url = f"{base_url.rstrip('/')}/models/{model_name}"
+            headers = {"x-goog-api-key": api_key}
+            response = requests.get(url, headers=headers, timeout=10.0)
+            response.raise_for_status()
             print("✅ OK")
         else:
-            print("❌ FAILED")
-            print(f"   Error: Model '{model_name}' not found.")
-            print(f"   Available models:")
-            for m in available_models[:10]:  # Show first 10 models
-                print(f"     - {m}")
-            if len(available_models) > 10:
-                print(f"     ... and {len(available_models) - 10} more")
-            all_passed = False
+            url = f"{base_url}/models"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+            }
+
+            response = requests.get(url, headers=headers, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+
+            # available_models = [model.id for model in models_response.data]
+            available_models = [model["id"] for model in data.get("data", [])]
+
+            print("✅ OK")
+
+            # Check 2: Model exists
+            print(f"2. Checking model '{model_name}'...", end=" ")
+            if model_name in available_models:
+                print("✅ OK")
+            else:
+                print("❌ FAILED")
+                print(f"   Error: Model '{model_name}' not found.")
+                print(f"   Available models:")
+                for m in available_models[:10]:  # Show first 10 models
+                    print(f"     - {m}")
+                if len(available_models) > 10:
+                    print(f"     ... and {len(available_models) - 10} more")
+                all_passed = False
 
     except Exception as e:
         print("❌ FAILED")
@@ -293,6 +305,14 @@ Examples:
         type=str,
         default="EMPTY",
         help="Model API KEY",
+    )
+
+    parser.add_argument(
+        "--api-type",
+        type=str,
+        choices=["openai", "gemini"],
+        default=os.getenv("PHONE_AGENT_API_TYPE", "openai"),
+        help="API type: openai or gemini (default: openai)",
     )
 
     parser.add_argument(
@@ -468,13 +488,10 @@ def main():
     if not check_system_requirements(wda_url=args.wda_url):
         sys.exit(1)
 
-    # Check model API connectivity and model availability
-    # if not check_model_api(args.base_url, args.api_key, args.model):
-    #     sys.exit(1)
-
     # Create configurations
     model_config = ModelConfig(
         base_url=args.base_url,
+        api_type=args.api_type,
         model_name=args.model,
         api_key=args.api_key
     )

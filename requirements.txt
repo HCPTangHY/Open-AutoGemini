@@ -1,5 +1,4 @@
 Pillow>=12.0.0
-openai>=2.9.0
 python-dotenv>=1.0.0
 
 # For iOS Support

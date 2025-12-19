@@ -1,6 +1,7 @@
 """Action handler for processing AI model outputs."""
 
 import ast
+import json
 import re
 import subprocess
 import time
@@ -345,6 +346,19 @@ def parse_action(response: str) -> dict[str, Any]:
     print(f"Parsing action: {response}")
     try:
         response = response.strip()
+        
+        # Try parsing as JSON first (common with some models)
+        if response.startswith("{") and response.endswith("}"):
+            try:
+                action = json.loads(response)
+                if "action" not in action and "element" in action:
+                    action["action"] = "Tap"  # Fallback for simple coordinate-only output
+                if "_metadata" not in action:
+                    action["_metadata"] = "do"
+                return action
+            except json.JSONDecodeError:
+                pass
+
         if response.startswith('do(action="Type"') or response.startswith(
             'do(action="Type_Name"'
         ):

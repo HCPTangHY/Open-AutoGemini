@@ -5,8 +5,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from openai import OpenAI
-
+import requests
 from phone_agent.config.i18n import get_message
 
 
@@ -16,6 +15,7 @@ class ModelConfig:
 
     base_url: str = "http://localhost:8000/v1"
     api_key: str = "EMPTY"
+    api_type: str = "openai"  # 'openai' or 'gemini'
     model_name: str = "autoglm-phone-9b"
     max_tokens: int = 3000
     temperature: float = 0.0
@@ -32,6 +32,9 @@ class ModelResponse:
     thinking: str
     action: str
     raw_content: str
+    thought_signature: str | None = None
+    structured_action: dict[str, Any] | None = None
+    tool_call_id: str | None = None
     # Performance metrics
     time_to_first_token: float | None = None  # Time to first token (seconds)
     time_to_thinking_end: float | None = None  # Time to thinking end (seconds)
@@ -48,96 +51,27 @@ class ModelClient:
 
     def __init__(self, config: ModelConfig | None = None):
         self.config = config or ModelConfig()
-        self.client = OpenAI(base_url=self.config.base_url, api_key=self.config.api_key)
 
     def request(self, messages: list[dict[str, Any]]) -> ModelResponse:
         """
         Send a request to the model.
-
-        Args:
-            messages: List of message dictionaries in OpenAI format.
-
-        Returns:
-            ModelResponse containing thinking and action.
-
-        Raises:
-            ValueError: If the response cannot be parsed.
         """
+        from phone_agent.model.openai_handler import openai_request
+        from phone_agent.model.gemini_handler import gemini_request
+
         # Start timing
         start_time = time.time()
-        time_to_first_token = None
-        time_to_thinking_end = None
 
-        stream = self.client.chat.completions.create(
-            messages=messages,
-            model=self.config.model_name,
-            max_tokens=self.config.max_tokens,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            frequency_penalty=self.config.frequency_penalty,
-            extra_body=self.config.extra_body,
-            stream=True,
-        )
-
-        raw_content = ""
-        buffer = ""  # Buffer to hold content that might be part of a marker
-        action_markers = ["finish(message=", "do(action="]
-        in_action_phase = False  # Track if we've entered the action phase
-        first_token_received = False
-
-        for chunk in stream:
-            if len(chunk.choices) == 0:
-                continue
-            if chunk.choices[0].delta.content is not None:
-                content = chunk.choices[0].delta.content
-                raw_content += content
-
-                # Record time to first token
-                if not first_token_received:
-                    time_to_first_token = time.time() - start_time
-                    first_token_received = True
-
-                if in_action_phase:
-                    # Already in action phase, just accumulate content without printing
-                    continue
-
-                buffer += content
-
-                # Check if any marker is fully present in buffer
-                marker_found = False
-                for marker in action_markers:
-                    if marker in buffer:
-                        # Marker found, print everything before it
-                        thinking_part = buffer.split(marker, 1)[0]
-                        print(thinking_part, end="", flush=True)
-                        print()  # Print newline after thinking is complete
-                        in_action_phase = True
-                        marker_found = True
-
-                        # Record time to thinking end
-                        if time_to_thinking_end is None:
-                            time_to_thinking_end = time.time() - start_time
-
-                        break
-
-                if marker_found:
-                    continue  # Continue to collect remaining content
-
-                # Check if buffer ends with a prefix of any marker
-                # If so, don't print yet (wait for more content)
-                is_potential_marker = False
-                for marker in action_markers:
-                    for i in range(1, len(marker)):
-                        if buffer.endswith(marker[:i]):
-                            is_potential_marker = True
-                            break
-                    if is_potential_marker:
-                        break
-
-                if not is_potential_marker:
-                    # Safe to print the buffer
-                    print(buffer, end="", flush=True)
-                    buffer = ""
+        if self.config.api_type == "gemini":
+            raw_content, thought_signature, time_to_first_token, time_to_thinking_end, structured_action, tool_call_id = gemini_request(
+                self.config, messages, start_time
+            )
+        else:
+            raw_content, thought_signature, time_to_first_token, time_to_thinking_end = openai_request(
+                self.config, messages, start_time
+            )
+            structured_action = None
+            tool_call_id = None
 
         # Calculate total time
         total_time = time.time() - start_time
@@ -168,6 +102,9 @@ class ModelClient:
             thinking=thinking,
             action=action,
             raw_content=raw_content,
+            thought_signature=thought_signature,
+            structured_action=structured_action,
+            tool_call_id=tool_call_id,
             time_to_first_token=time_to_first_token,
             time_to_thinking_end=time_to_thinking_end,
             total_time=total_time,
@@ -176,21 +113,11 @@ class ModelClient:
     def _parse_response(self, content: str) -> tuple[str, str]:
         """
         Parse the model response into thinking and action parts.
-
-        Parsing rules:
-        1. If content contains 'finish(message=', everything before is thinking,
-           everything from 'finish(message=' onwards is action.
-        2. If rule 1 doesn't apply but content contains 'do(action=',
-           everything before is thinking, everything from 'do(action=' onwards is action.
-        3. Fallback: If content contains '<answer>', use legacy parsing with XML tags.
-        4. Otherwise, return empty thinking and full content as action.
-
-        Args:
-            content: Raw response content.
-
-        Returns:
-            Tuple of (thinking, action).
         """
+        # If content is empty, avoid parsing
+        if not content.strip():
+            return "", ""
+
         # Rule 1: Check for finish(message=
         if "finish(message=" in content:
             parts = content.split("finish(message=", 1)
@@ -257,9 +184,32 @@ class MessageBuilder:
         return {"role": "user", "content": content}
 
     @staticmethod
-    def create_assistant_message(content: str) -> dict[str, Any]:
-        """Create an assistant message."""
-        return {"role": "assistant", "content": content}
+    def create_tool_message(
+        name: str, content: str, tool_call_id: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Create a tool response message.
+        """
+        return {
+            "role": "tool",
+            "name": name,
+            "tool_call_id": tool_call_id or f"call_{int(time.time())}",
+            "content": content,
+        }
+
+    @staticmethod
+    def create_assistant_message(
+        content: str, thought_signature: str | None = None, tool_calls: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
+        """
+        Create an assistant message with optional Gemini thought signature and tool calls.
+        """
+        message = {"role": "assistant", "content": content}
+        if thought_signature:
+            message["extra_content"] = {"google": {"thought_signature": thought_signature}}
+        if tool_calls:
+            message["tool_calls"] = tool_calls
+        return message
 
     @staticmethod
     def remove_images_from_message(message: dict[str, Any]) -> dict[str, Any]:

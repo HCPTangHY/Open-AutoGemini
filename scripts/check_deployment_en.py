@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-from openai import OpenAI
+import requests
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -89,31 +89,36 @@ Usage examples:
     print("=" * 80)
 
     try:
-        client = OpenAI(
-            base_url=base_url,
-            api_key=api_key,
-        )
+        url = f"{base_url}/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": args.max_tokens,
+            "temperature": args.temperature,
+            "top_p": args.top_p,
+            "frequency_penalty": args.frequency_penalty,
+            "stream": False,
+        }
 
-        response = client.chat.completions.create(
-            messages=messages,
-            model=model,
-            max_tokens=args.max_tokens,
-            temperature=args.temperature,
-            top_p=args.top_p,
-            frequency_penalty=args.frequency_penalty,
-            stream=False,
-        )
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
 
         print("\nModel inference result:")
         print("=" * 80)
-        print(response.choices[0].message.content)
+        print(data["choices"][0]["message"]["content"])
         print("=" * 80)
 
-        if response.usage:
+        usage = data.get("usage")
+        if usage:
             print(f"\nStatistics:")
-            print(f"  - Prompt tokens: {response.usage.prompt_tokens}")
-            print(f"  - Completion tokens: {response.usage.completion_tokens}")
-            print(f"  - Total tokens: {response.usage.total_tokens}")
+            print(f"  - Prompt tokens: {usage.get('prompt_tokens')}")
+            print(f"  - Completion tokens: {usage.get('completion_tokens')}")
+            print(f"  - Total tokens: {usage.get('total_tokens')}")
 
         print(
             f"\nPlease evaluate the above inference result to determine if the model deployment meets expectations."

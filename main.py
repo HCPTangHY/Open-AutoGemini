@@ -26,8 +26,7 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
-from openai import OpenAI
-
+import requests
 from phone_agent import PhoneAgent
 from phone_agent.agent import AgentConfig
 from phone_agent.agent_ios import IOSAgentConfig, IOSPhoneAgent
@@ -275,49 +274,55 @@ def check_system_requirements(
     return all_passed
 
 
-def check_model_api(base_url: str, model_name: str, api_key: str = "EMPTY") -> bool:
+def check_model_api(
+    base_url: str, model_name: str, api_key: str = "EMPTY", api_type: str = "openai"
+) -> bool:
     """
     Check if the model API is accessible and the specified model exists.
 
     Checks:
     1. Network connectivity to the API endpoint
-    2. Model exists in the available models list
+    2. Model exists/accessible
 
     Args:
         base_url: The API base URL
         model_name: The model name to check
         api_key: The API key for authentication
+        api_type: 'openai' or 'gemini'
 
     Returns:
         True if all checks pass, False otherwise.
     """
-    print("🔍 Checking model API...")
+    print(f"🔍 Checking model API ({api_type})...")
     print("-" * 50)
 
     all_passed = True
 
-    # Check 1: Network connectivity using chat API
+    # Check 1: Network connectivity
     print(f"1. Checking API connectivity ({base_url})...", end=" ")
     try:
-        # Create OpenAI client
-        client = OpenAI(base_url=base_url, api_key=api_key, timeout=30.0)
-
-        # Use chat completion to test connectivity (more universally supported than /models)
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": "Hi"}],
-            max_tokens=5,
-            temperature=0.0,
-            stream=False,
-        )
-
-        # Check if we got a valid response
-        if response.choices and len(response.choices) > 0:
-            print("✅ OK")
+        if api_type == "gemini":
+            # For Gemini, we check the model info directly
+            url = f"{base_url.rstrip('/')}/models/{model_name}"
+            headers = {"x-goog-api-key": api_key}
+            response = requests.get(url, headers=headers, timeout=30.0)
         else:
-            print("❌ FAILED")
-            print("   Error: Received empty response from API")
-            all_passed = False
+            url = f"{base_url}/chat/completions"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+            payload = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": "Hi"}],
+                "max_tokens": 5,
+                "temperature": 0.0,
+                "stream": False,
+            }
+            response = requests.post(url, headers=headers, json=payload, timeout=30.0)
+
+        response.raise_for_status()
+        print("✅ OK")
 
     except Exception as e:
         print("❌ FAILED")
@@ -413,6 +418,14 @@ Examples:
         type=str,
         default=os.getenv("PHONE_AGENT_BASE_URL", "http://localhost:8000/v1"),
         help="Model API base URL",
+    )
+
+    parser.add_argument(
+        "--api-type",
+        type=str,
+        choices=["openai", "gemini"],
+        default=os.getenv("PHONE_AGENT_API_TYPE", "openai"),
+        help="API type: openai or gemini (default: openai)",
     )
 
     parser.add_argument(
@@ -746,13 +759,10 @@ def main():
     ):
         sys.exit(1)
 
-    # Check model API connectivity and model availability
-    if not check_model_api(args.base_url, args.model, args.apikey):
-        sys.exit(1)
-
     # Create configurations and agent based on device type
     model_config = ModelConfig(
         base_url=args.base_url,
+        api_type=args.api_type,
         model_name=args.model,
         api_key=args.apikey,
         lang=args.lang,
