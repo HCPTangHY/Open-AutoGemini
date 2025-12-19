@@ -196,6 +196,8 @@ class ModelClient:
             parts = content.split("finish(message=", 1)
             thinking = parts[0].strip()
             action = "finish(message=" + parts[1]
+            # Clean up potential trailing XML tags
+            action = action.replace("</answer>", "").strip()
             return thinking, action
 
         # Rule 2: Check for do(action=
@@ -203,6 +205,8 @@ class ModelClient:
             parts = content.split("do(action=", 1)
             thinking = parts[0].strip()
             action = "do(action=" + parts[1]
+            # Clean up potential trailing XML tags
+            action = action.replace("</answer>", "").strip()
             return thinking, action
 
         # Rule 3: Fallback to legacy XML tag parsing

@@ -55,6 +55,11 @@ Thumbs.db
 /tmp/
 screenshots/
 
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Keep old files during transition
 call_model.py
 app_package_name.py
