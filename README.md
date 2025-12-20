@@ -1,4 +1,4 @@
-# Open-AutoGLM
+# Open-AutoGemini
 
 [Readme in English](README_en.md)
 
@@ -8,31 +8,35 @@
 <p align="center">
     👋 加入我们的 <a href="resources/WECHAT.md" target="_blank">微信</a> 社区
 </p>
-<p align="center">
-    🎤 进一步在我们的产品 <a href="https://autoglm.zhipuai.cn/autotyper/" target="_blank">智谱 AI 输入法</a> 体验“用嘴发指令”
-</p
-><p align="center">
-    <a href="https://mp.weixin.qq.com/s/wRp22dmRVF23ySEiATiWIQ" target="_blank">AutoGLM 实战派</a> 开发者激励活动火热进行中，跑通、二创即可瓜分数万元现金奖池！成果提交 👉 <a href="https://zhipu-ai.feishu.cn/share/base/form/shrcnE3ZuPD5tlOyVJ7d5Wtir8c?from=navigation" target="_blank">入口</a>
-</p>
 
 ## 懒人版快速安装
 
 你可以使用Claude Code，配置 [GLM Coding Plan](https://bigmodel.cn/glm-coding) 后，输入以下提示词，快速部署本项目。
 
 ```
-访问文档，为我安装 AutoGLM
-https://raw.githubusercontent.com/zai-org/Open-AutoGLM/refs/heads/main/README.md
+访问文档，为我安装 Open-AutoGemini
+https://raw.githubusercontent.com/zai-org/Open-AutoGemini/refs/heads/main/README.md
 ```
 
 ## 项目介绍
 
-Phone Agent 是一个基于 AutoGLM 构建的手机端智能助理框架，它能够以多模态方式理解手机屏幕内容，并通过自动化操作帮助用户完成任务。系统通过
-ADB(Android Debug Bridge)来控制设备，以视觉语言模型进行屏幕感知，再结合智能规划能力生成并执行操作流程。用户只需用自然语言描述需求，如“打开小红书搜索美食”，Phone
-Agent 即可自动解析意图、理解当前界面、规划下一步动作并完成整个流程。系统还内置敏感操作确认机制，并支持在登录或验证码场景下进行人工接管。同时，它提供远程
-ADB 调试能力，可通过 WiFi 或网络连接设备，实现灵活的远程控制与开发。
+Open-AutoGemini 是一个开源的手机端智能助理框架，支持 Android、iOS 和鸿蒙 (HarmonyOS) 系统。它能够以多模态方式理解手机屏幕内容，并支持通过 Google Gemini 或智谱 AutoGLM 模型驱动，通过自动化操作帮助用户完成任务。
+
+本项目基于 [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM) 进行开发和扩展。
+
+### 核心特性
+- **多端支持**: 完美支持 Android (ADB)、鸿蒙 (HDC) 以及 iOS (WebDriverAgent)。
+- **多模型驱动**: 支持 Google Gemini (Native API + Tool Call) 和 智谱 AutoGLM 模型。
+- **Web UI 交互**: 内置基于 Gradio 的 Web 交互界面，实时查看 Agent 思考过程与手机画面。
+- **性能监控**: 实时追踪首 token 延迟 (TTFT)、总推理时长等关键性能指标。
+- **安全可控**: 内置敏感操作确认机制，支持在登录或验证码场景下人工接管。
 
 > ⚠️
 > 本项目仅供研究和学习使用。严禁用于非法获取信息、干扰系统或任何违法活动。请仔细审阅 [使用条款](resources/privacy_policy.txt)。
+
+## 致谢
+
+本项目是在 [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM) 的基础上进行的二次开发和功能增强，感谢原作者及社区的贡献。
 
 ## 模型下载地址
 
@@ -802,7 +806,7 @@ adb devices
 
 ## 自动化部署指南(面向 AI)
 
-> **本章节专为 AI 助手(如 Claude Code)设计，用于自动化部署 Open-AutoGLM。**
+> **本章节专为 AI 助手(如 Claude Code)设计，用于自动化部署 Open-AutoGemini。**
 >
 > 如果你是人类读者，可以跳过本章节，按照上面的文档操作即可。
 
@@ -810,7 +814,7 @@ adb devices
 
 ### 项目概述
 
-Open-AutoGLM 是一个手机 Agent 框架：
+Open-AutoGemini 是一个手机 Agent 框架：
 - **输入**：用户的自然语言指令(如"打开微信发消息给张三")
 - **输出**：自动操作用户的安卓手机完成任务
 - **原理**：截图 → 视觉模型理解界面 → 输出点击坐标 → ADB 执行操作 → 循环
@@ -888,8 +892,8 @@ adb devices
 
 ```bash
 # 1. 克隆仓库(如果还没有克隆)
-git clone https://github.com/zai-org/Open-AutoGLM.git
-cd Open-AutoGLM
+git clone https://github.com/zai-org/Open-AutoGemini.git
+cd Open-AutoGemini
 
 # 2. 创建虚拟环境(推荐)
 python -m venv venv
@@ -957,7 +961,7 @@ python3 -m vllm.entrypoints.openai.api_server \
 #### 阶段四：验证部署
 
 ```bash
-# 在 Open-AutoGLM 目录下执行
+# 在 Open-AutoGemini 目录下执行
 # 将 {MODEL_URL} 替换为实际的模型服务地址
 
 python main.py --base-url {MODEL_URL} --model "autoglm-phone-9b" "打开微信，对文件传输助手发送消息：部署成功"

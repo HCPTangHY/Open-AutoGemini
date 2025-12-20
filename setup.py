@@ -7,14 +7,14 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="phone-agent",
+    name="open-autogemini",
     version="0.1.0",
     author="Zhipu AI",
     author_email="",
-    description="AI-powered phone automation framework",
+    description="Open-AutoGemini: AI-powered phone automation framework with Gemini and GLM support",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/phone-agent",
+    url="https://github.com/*/Open-AutoGemini",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Phone Agent CLI - AI-powered phone automation.
+Open-AutoGemini CLI - AI-powered phone automation.
 
 Usage:
     python main.py [OPTIONS]
@@ -8,9 +8,11 @@ Usage:
 Environment Variables:
     PHONE_AGENT_BASE_URL: Model API base URL (default: http://localhost:8000/v1)
     PHONE_AGENT_MODEL: Model name (default: autoglm-phone-9b)
+    PHONE_AGENT_API_TYPE: API type: 'openai' or 'gemini' (default: openai)
     PHONE_AGENT_API_KEY: API key for model authentication (default: EMPTY)
     PHONE_AGENT_MAX_STEPS: Maximum steps per task (default: 100)
-    PHONE_AGENT_DEVICE_ID: ADB device ID for multi-device setups
+    PHONE_AGENT_DEVICE_ID: ADB/HDC/iOS device ID
+    PHONE_AGENT_DEVICE_TYPE: Device type: 'adb', 'hdc', or 'ios'
 
 You can also configure these in a .env file. Copy .env.example to .env and fill in your values.
 """
@@ -366,7 +368,7 @@ def check_model_api(
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Phone Agent - AI-powered phone automation",
+        description="Open-AutoGemini - AI-powered phone automation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -799,9 +801,9 @@ def main():
     # Print header
     print("=" * 50)
     if device_type == DeviceType.IOS:
-        print("Phone Agent iOS - AI-powered iOS automation")
+        print("Open-AutoGemini iOS - AI-powered iOS automation")
     else:
-        print("Phone Agent - AI-powered phone automation")
+        print("Open-AutoGemini - AI-powered phone automation")
     print("=" * 50)
     print(f"Model: {model_config.model_name}")
     print(f"Base URL: {model_config.base_url}")

@@ -1,4 +1,4 @@
-# Open-AutoGLM
+# Open-AutoGemini
 
 [中文阅读.](./README.md)
 
@@ -14,15 +14,28 @@
 You can use Claude Code with [GLM Coding Plan](https://z.ai/subscribe) and enter the following prompt to quickly deploy this project:
 
 ```
-Access the documentation and install AutoGLM for me
-https://raw.githubusercontent.com/zai-org/Open-AutoGLM/refs/heads/main/README_en.md
+Access the documentation and install Open-AutoGemini for me
+https://raw.githubusercontent.com/zai-org/Open-AutoGemini/refs/heads/main/README_en.md
 ```
 
 ## Project Introduction
 
-Phone Agent is a mobile intelligent assistant framework built on AutoGLM. It understands phone screen content in a multimodal manner and helps users complete tasks through automated operations. The system controls devices via ADB (Android Debug Bridge), perceives screens using vision-language models, and generates and executes operation workflows through intelligent planning. Users simply describe their needs in natural language, such as "Open eBay and search for wireless earphones." and Phone Agent will automatically parse the intent, understand the current interface, plan the next action, and complete the entire workflow. The system also includes a sensitive operation confirmation mechanism and supports manual takeover during login or verification code scenarios. Additionally, it provides remote ADB debugging capabilities, allowing device connection via WiFi or network for flexible remote control and development.
+Open-AutoGemini is an open-source mobile intelligent assistant framework that supports Android, iOS, and HarmonyOS. It understands mobile screen content multimodally and can be driven by Google Gemini or Zhipu AutoGLM models to help users complete tasks through automated operations.
+
+This project is built upon and extends [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM).
+
+### Key Features
+- **Cross-Platform Support**: Seamlessly supports Android (ADB), HarmonyOS (HDC), and iOS (WebDriverAgent).
+- **Multi-Model Support**: Supports Google Gemini (Native API + Tool Call) and Zhipu AutoGLM models.
+- **Web UI**: Built-in Gradio-based web interface to view the Agent's reasoning process and phone screen in real-time.
+- **Performance Monitoring**: Real-time tracking of Time to First Token (TTFT), total inference time, and other key metrics.
+- **Secure & Controllable**: Built-in sensitive operation confirmation and manual takeover support for login/captcha scenarios.
 
 > ⚠️ This project is for research and learning purposes only. It is strictly prohibited to use for illegal information acquisition, system interference, or any illegal activities. Please carefully review the [Terms of Use](resources/privacy_policy_en.txt).
+
+## Acknowledgments
+
+This project is a functional enhancement and secondary development based on [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM). We thank the original authors and the community for their contributions.
 
 ## Model Download Links
 
@@ -694,7 +707,7 @@ If you find our work helpful, please cite the following papers:
 
 ## Automated Deployment Guide (For AI Assistants)
 
-> **This section is specifically designed for AI assistants (such as Claude Code) to automate the deployment of Open-AutoGLM.**
+> **This section is specifically designed for AI assistants (such as Claude Code) to automate the deployment of Open-AutoGemini.**
 >
 > If you are a human reader, you can skip this section and follow the documentation above.
 
@@ -702,7 +715,7 @@ If you find our work helpful, please cite the following papers:
 
 ### Project Overview
 
-Open-AutoGLM is a phone agent framework:
+Open-AutoGemini is a phone agent framework:
 - **Input**: User's natural language instructions (e.g., "Open WhatsApp and send a message to John")
 - **Output**: Automatically operates the user's Android phone to complete tasks
 - **Mechanism**: Screenshot → Vision model understands interface → Outputs tap coordinates → ADB executes actions → Loop
@@ -780,8 +793,8 @@ adb devices
 
 ```bash
 # 1. Clone repository (if not already cloned)
-git clone https://github.com/zai-org/Open-AutoGLM.git
-cd Open-AutoGLM
+git clone https://github.com/zai-org/Open-AutoGemini.git
+cd Open-AutoGemini
 
 # 2. Create virtual environment (recommended)
 python -m venv venv
@@ -858,7 +871,7 @@ python3 -m vllm.entrypoints.openai.api_server \
 #### Phase 4: Verify Deployment
 
 ```bash
-# Execute in the Open-AutoGLM directory
+# Execute in the Open-AutoGemini directory
 # Replace {MODEL_URL} with the actual model service address
 
 python main.py --base-url {MODEL_URL} --model "autoglm-phone-9b-multilingual" "Open Gmail and send an email to File Transfer Assistant: Deployment successful"
