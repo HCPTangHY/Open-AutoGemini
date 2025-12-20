@@ -110,6 +110,9 @@ def gemini_request(config, messages: list[dict[str, Any]], start_time: float):
             "temperature": config.temperature,
             "topP": config.top_p,
             "candidateCount": 1,
+            "thinkingConfig": {
+                "includeThoughts": True
+            }
         }
     }
     if system_instruction:
@@ -129,6 +132,7 @@ def gemini_request(config, messages: list[dict[str, Any]], start_time: float):
     buffer = ""
     action_markers = ["finish(message=", "do(action="]
     in_action_phase = False
+    in_thought_phase = False
     first_token_received = False
     time_to_first_token = None
     time_to_thinking_end = None
@@ -161,48 +165,11 @@ def gemini_request(config, messages: list[dict[str, Any]], start_time: float):
             if sig:
                 thought_signature = sig
                 
-            # Handle Thinking/Thought parts (for Thinking models)
-            thought = part.get("thought")
-            if thought:
-                # Treat thought as thinking text
-                raw_content += thought
-                
-                if not first_token_received:
-                    time_to_first_token = time.time() - start_time
-                    first_token_received = True
-                
-                if not in_action_phase:
-                    buffer += thought
-                    # Check for markers in thought (though unlikely)
-                    marker_found = False
-                    for marker in action_markers:
-                        if marker in buffer:
-                            thinking_part = buffer.split(marker, 1)[0]
-                            print(thinking_part, end="", flush=True)
-                            print()
-                            in_action_phase = True
-                            marker_found = True
-                            if time_to_thinking_end is None:
-                                time_to_thinking_end = time.time() - start_time
-                            break
-                    
-                    if not marker_found:
-                        # Print thought buffer if not entering action
-                        is_potential_marker = False
-                        for marker in action_markers:
-                            for i in range(1, len(marker)):
-                                if buffer.endswith(marker[:i]):
-                                    is_potential_marker = True
-                                    break
-                            if is_potential_marker:
-                                break
-                        
-                        if not is_potential_marker:
-                            print(buffer, end="", flush=True)
-                            buffer = ""
-
             # Handle native Tool Calls
             if "functionCall" in part:
+                if in_thought_phase:
+                    in_thought_phase = False
+                
                 fc = part["functionCall"]
                 # Capture tool_call_id if provided by the API
                 tool_call_id = fc.get("id")
@@ -210,18 +177,31 @@ def gemini_request(config, messages: list[dict[str, Any]], start_time: float):
                 
                 if not in_action_phase:
                     in_action_phase = True
-                    print() # New line after thinking
                     if time_to_thinking_end is None:
                         time_to_thinking_end = time.time() - start_time
+                continue
 
-            if "text" in part:
-                text = part["text"]
-                raw_content += text
+            # Handle Thinking and regular text
+            text = part.get("text")
+            if text:
+                is_thought = part.get("thought", False)
                 
                 if not first_token_received:
                     time_to_first_token = time.time() - start_time
                     first_token_received = True
                 
+                if is_thought:
+                    in_thought_phase = True
+                    # Native thought: print directly and wrap in <think> for raw_content
+                    raw_content += f"<think>{text}</think>"
+                    continue
+
+                if in_thought_phase:
+                    in_thought_phase = False
+                    if time_to_thinking_end is None:
+                        time_to_thinking_end = time.time() - start_time
+
+                raw_content += text
                 if in_action_phase:
                     continue
                 

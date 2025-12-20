@@ -77,7 +77,12 @@ class ModelClient:
         total_time = time.time() - start_time
 
         # Parse thinking and action from response
-        thinking, action = self._parse_response(raw_content)
+        if structured_action:
+            # If we have a native tool call, the text content is usually thinking
+            thinking = raw_content.replace("<think>", "").replace("</think>", "").strip()
+            action = ""
+        else:
+            thinking, action = self._parse_response(raw_content)
 
         # Print performance metrics
         lang = self.config.lang
@@ -142,6 +147,16 @@ class ModelClient:
             thinking = parts[0].replace("<think>", "").replace("</think>", "").strip()
             action = parts[1].replace("</answer>", "").strip()
             return thinking, action
+
+        # Rule 3b: Handle thinking tags without answer tags
+        if "<think>" in content:
+            if "</think>" in content:
+                parts = content.split("</think>", 1)
+                thinking = parts[0].replace("<think>", "").strip()
+                action = parts[1].strip()
+                return thinking, action
+            else:
+                return content.replace("<think>", "").strip(), ""
 
         # Rule 4: No markers found, return content as action
         return "", content
