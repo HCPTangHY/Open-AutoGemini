@@ -147,8 +147,32 @@ def create_ui():
     cached_config = load_ui_config()
     
     # 修复 Gradio 6.0 警告：将 theme 移至 launch
-    with gr.Blocks(title="Open-AutoGemini Web UI") as demo:
-        gr.Markdown("# 📱 Open-AutoGemini 智能手机助手")
+    js_load_localstorage = """
+    function() {
+        const fields = ['api_key', 'base_url', 'model_name', 'api_type', 'device_id', 'lang', 'max_steps'];
+        fields.forEach(id => {
+            const saved = localStorage.getItem('autoglm_gradio_' + id);
+            if (saved) {
+                const el = document.querySelector(`#${id} textarea, #${id} input, #${id} select`);
+                if (el) {
+                    // 模拟输入触发 Gradio 后端更新
+                    el.value = saved;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+            
+            // 监听变化并保存
+            document.querySelector(`#${id}`).addEventListener('input', (e) => {
+                const val = e.target.value;
+                if (val !== undefined) {
+                    localStorage.setItem('autoglm_gradio_' + id, val);
+                }
+            }, true);
+        });
+    }
+    """
+    with gr.Blocks(title="Open-AutoGLM Web UI", js=js_load_localstorage) as demo:
+        gr.Markdown("# 📱 Open-AutoGLM 智能手机助手")
         
         with gr.Row():
             # Sidebar for configuration
@@ -157,37 +181,44 @@ def create_ui():
                 api_key = gr.Textbox(
                     label="API Key", 
                     value=cached_config.get("api_key", os.getenv("OPENAI_API_KEY", "")),
-                    type="password"
+                    type="password",
+                    elem_id="api_key"
                 )
                 base_url = gr.Textbox(
                     label="Base URL", 
-                    value=cached_config.get("base_url", os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
+                    value=cached_config.get("base_url", os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")),
+                    elem_id="base_url"
                 )
                 model_name = gr.Textbox(
                     label="Model Name", 
-                    value=cached_config.get("model_name", os.getenv("MODEL_NAME", "gpt-4o"))
+                    value=cached_config.get("model_name", os.getenv("MODEL_NAME", "gpt-4o")),
+                    elem_id="model_name"
                 )
                 api_type = gr.Dropdown(
                     choices=["openai", "gemini"], 
                     value=cached_config.get("api_type", "openai"), 
-                    label="API Type"
+                    label="API Type",
+                    elem_id="api_type"
                 )
                 device_id = gr.Textbox(
                     label="Device ID (Optional)", 
                     value=cached_config.get("device_id", ""),
-                    placeholder="ADB/HDC 设备 ID"
+                    placeholder="ADB/HDC 设备 ID",
+                    elem_id="device_id"
                 )
                 lang = gr.Radio(
                     choices=["cn", "en"], 
                     value=cached_config.get("lang", "cn"), 
-                    label="语言 / Language"
+                    label="语言 / Language",
+                    elem_id="lang"
                 )
                 max_steps = gr.Slider(
                     minimum=1, 
                     maximum=50, 
                     value=cached_config.get("max_steps", 15), 
                     step=1, 
-                    label="最大步数"
+                    label="最大步数",
+                    elem_id="max_steps"
                 )
             
             # Main area

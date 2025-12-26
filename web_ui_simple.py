@@ -44,6 +44,7 @@ state = {
     "history": [], # 存储步骤对象
     "running": False,
     "current_step": 0,
+    "current_task": "",
     "config": load_config()
 }
 
@@ -64,19 +65,44 @@ class SimpleHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "running": state["running"],
                 "history": state["history"],
-                "config": state["config"]
+                "config": state["config"],
+                "current_task": state["current_task"]
             }).encode())
             
         elif parsed_path.path == '/screenshot.png':
             if os.path.exists("latest_screenshot.png"):
                 self.send_response(200)
                 self.send_header('Content-type', 'image/png')
+                self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
                 self.end_headers()
                 with open("latest_screenshot.png", "rb") as f:
                     self.wfile.write(f.read())
             else:
                 self.send_response(404)
                 self.end_headers()
+
+        elif parsed_path.path == '/refresh_screen':
+            # 手动触发一次屏幕截图
+            try:
+                from phone_agent.device_factory import get_device_factory
+                df = get_device_factory()
+                # 尝试获取当前配置中的 device_id
+                cfg = state["config"]
+                screenshot = df.get_screenshot(cfg.get("device_id") if cfg.get("device_id") else None)
+                if screenshot:
+                    img_data = base64.b64decode(screenshot.base64_data)
+                    with open("latest_screenshot.png", "wb") as f:
+                        f.write(img_data)
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"OK")
+                else:
+                    self.send_response(500)
+                    self.end_headers()
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(e).encode())
 
         elif parsed_path.path == '/start':
             query = parse_qs(parsed_path.query)
@@ -95,7 +121,10 @@ class SimpleHandler(http.server.SimpleHTTPRequestHandler):
             
             task = query.get('task', [''])[0]
             if task and not state['running']:
-                threading.Thread(target=run_agent_thread, args=(task, new_config)).start()
+                # 设置为 daemon=True，确保主程序退出时子线程也随之停止
+                t = threading.Thread(target=run_agent_thread, args=(task, new_config))
+                t.daemon = True
+                t.start()
             
             self.send_response(200)
             self.end_headers()
@@ -103,110 +132,101 @@ class SimpleHandler(http.server.SimpleHTTPRequestHandler):
 
     def get_html(self):
         c = state["config"]
+        # 使用三个单引号的 f-string 以减少双引号转义压力，但这里保持一致
         return f"""
+        <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Open-AutoGLM Lite Full</title>
+            <title>Open-AutoGLM Web Console</title>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
             <style>
-                body {{ font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #f4f7f9; color: #333; }}
-                .app {{ display: flex; flex-direction: column; height: 100vh; }}
-                header {{ background: #202123; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }}
-                .main {{ display: flex; flex: 1; overflow: hidden; }}
-                
-                /* Sidebar Settings */
-                .sidebar {{ width: 300px; background: white; border-right: 1px solid #ddd; padding: 20px; overflow-y: auto; font-size: 13px; flex-shrink: 0; }}
-                .sidebar h3 {{ margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }}
-                .field {{ margin-bottom: 15px; }}
-                .field label {{ display: block; margin-bottom: 5px; font-weight: bold; }}
-                .field input, .field select {{ width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }}
-                
-                /* Content Area */
-                .content {{ flex: 1; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; }}
-                .control-card {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }}
-                .task-row {{ display: flex; gap: 10px; }}
-                .task-row input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; min-width: 0; }}
-                .btn-run {{ background: #10a37f; color: white; border: none; padding: 0 20px; border-radius: 6px; cursor: pointer; font-weight: bold; flex-shrink: 0; }}
-                .btn-run:disabled {{ background: #ccc; }}
-                
-                /* Output Area */
-                .output-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex: 1; min-height: 0; }}
-                .screen-box, .log-box {{ background: white; border-radius: 8px; padding: 15px; border: 1px solid #ddd; display: flex; flex-direction: column; min-height: 300px; }}
-                .log-box {{ overflow-y: auto; }}
-                #screenshot {{ max-width: 100%; height: auto; object-fit: contain; margin: auto; border: 1px solid #eee; }}
-                
-                /* Mobile Responsive */
-                @media (max-width: 768px) {{
-                    .main {{ flex-direction: column; overflow-y: auto; }}
-                    .sidebar {{ width: 100%; border-right: none; border-bottom: 1px solid #ddd; height: auto; overflow-y: visible; }}
-                    .output-grid {{ grid-template-columns: 1fr; }}
-                    .app {{ height: auto; min-height: 100vh; }}
-                    .main {{ overflow: visible; }}
+                :root {{
+                    --primary: #10a37f;
+                    --primary-hover: #0d8a6a;
+                    --bg-page: #f0f2f5;
+                    --bg-card: #ffffff;
+                    --text-main: #1a1a1a;
+                    --text-muted: #666666;
+                    --border: #e0e0e0;
+                    --sidebar-bg: #202123;
                 }}
-                
-                /* Log Styling */
-                .step-item {{ border-bottom: 1px solid #eee; padding: 10px 0; }}
-                .step-num {{ color: #10a37f; font-weight: bold; }}
-                .thought {{ font-style: italic; color: #555; background: #f9f9f9; padding: 8px; margin: 5px 0; border-radius: 4px; }}
-                .action-tag {{ display: inline-block; background: #e7f3ff; color: #007bff; padding: 2px 6px; border-radius: 3px; font-family: monospace; }}
+                body {{ font-family: 'Inter', -apple-system, system-ui, sans-serif; margin: 0; background: var(--bg-page); color: var(--text-main); line-height: 1.5; }}
+                .app {{ display: flex; flex-direction: column; height: 100vh; }}
+                header {{ background: var(--sidebar-bg); color: white; padding: 0 24px; height: 60px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }}
+                .header-title {{ font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }}
+                .main {{ display: flex; flex: 1; overflow: hidden; }}
+                .sidebar {{ width: 320px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 24px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; }}
+                .sidebar h3 {{ margin: 0 0 10px 0; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main); }}
+                .field {{ margin-bottom: 0; }}
+                .field label {{ display: block; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }}
+                .field input, .field select {{ width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 14px; transition: border-color 0.2s; }}
+                .field input:focus {{ outline: none; border-color: var(--primary); }}
+                .content {{ flex: 1; display: flex; flex-direction: column; padding: 24px; overflow-y: auto; gap: 24px; min-width: 0; }}
+                .card {{ background: var(--bg-card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid var(--border); max-width: 100%; overflow: hidden; }}
+                .task-card {{ padding: 20px; }}
+                .task-row {{ display: flex; gap: 12px; flex-wrap: wrap; }}
+                .task-row input {{ flex: 1; min-width: 200px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; background: #f9f9f9; }}
+                .btn-run {{ background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }}
+                .output-grid {{ display: grid; grid-template-columns: 380px 1fr; gap: 24px; flex: 1; min-height: 0; min-width: 0; }}
+                .screen-box {{ display: flex; flex-direction: column; height: 100%; }}
+                .box-header {{ padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; display: flex; align-items: center; gap: 8px; }}
+                .screen-container {{ flex: 1; padding: 16px; display: flex; align-items: center; justify-content: center; background: #2a2a2e; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; overflow: hidden; }}
+                #screenshot {{ max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }}
+                .log-box {{display: flex; flex-direction: column; height: 100%; overflow: hidden; }}
+                #history_list {{ flex: 1; overflow-y: auto; padding: 0; }}
+                .step-item {{ border-bottom: 1px solid var(--border); padding: 20px; transition: background 0.2s; }}
+                .step-item:last-child {{ border-bottom: none; }}
+                .step-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
+                .step-num {{ background: #e7f6f2; color: var(--primary); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }}
+                .step-status {{ font-size: 12px; }}
+                .status-success {{ color: var(--primary); }}
+                .status-fail {{ color: #dc3545; }}
+                .thought-container {{ background: #f8f9fa; border-left: 4px solid #dee2e6; padding: 12px 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0; }}
+                .thought-label {{ font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; display: block; }}
+                .thought-text {{ font-size: 14px; color: #444; }}
+                .action-info {{ display: flex; align-items: flex-start; gap: 10px; font-size: 14px; overflow: hidden; }}
+                .action-tag {{ background: #e7f3ff; color: #007bff; padding: 4px 10px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; white-space: nowrap; }}
+                .action-msg {{ color: var(--text-muted); margin-top: 4px; word-break: break-all; }}
+                #status-badge {{ font-size: 13px; display: flex; align-items: center; gap: 6px; font-weight: 600; padding: 6px 12px; border-radius: 20px; background: rgba(255,255,255,0.1); white-space: nowrap; }}
+                .current-task-display {{ margin-bottom: 24px; padding: 16px; background: #e7f6f2; border-radius: 10px; border: 1px solid #c3e6cb; word-break: break-all; }}
+                .task-label {{ font-size: 12px; font-weight: 700; color: #0d8a6a; margin-bottom: 4px; text-transform: uppercase; }}
+                .task-text {{ font-size: 16px; font-weight: 600; color: #155724; }}
+                @media (max-width: 1024px) {{ .output-grid {{ grid-template-columns: 1fr; }} .sidebar {{ width: 280px; }} }}
+                @media (max-width: 768px) {{ header {{ padding: 0 16px; }} .header-title {{ font-size: 16px; }} .content {{ padding: 16px; }} .main {{ flex-direction: column; overflow-y: auto; }} .sidebar {{ width: 100%; border-right: none; border-bottom: 1px solid var(--border); height: auto; overflow-y: visible; padding: 16px; box-sizing: border-box; }} .app {{ height: auto; min-height: 100vh; }} .main {{ overflow: visible; }} .output-grid {{ grid-template-columns: 1fr; }} .task-row {{ flex-direction: column; }} .btn-run {{ width: 100%; padding: 12px; }} .screen-container {{ min-height: 400px; }} }}
+                ::-webkit-scrollbar {{ width: 8px; }} ::-webkit-scrollbar-track {{ background: transparent; }} ::-webkit-scrollbar-thumb {{ background: #ccc; border-radius: 4px; }} ::-webkit-scrollbar-thumb:hover {{ background: #bbb; }}
             </style>
         </head>
         <body>
             <div class="app">
                 <header>
-                    <strong>📱 Open-AutoGLM Lite</strong>
-                    <div id="status-badge">● 准备就绪</div>
+                    <div class="header-title"><i class="fas fa-robot"></i> Open-AutoGLM Console</div>
+                    <div id="status-badge"><i class="fas fa-circle" id="status-dot" style="color: #10a37f; font-size: 8px;"></i> <span id="status-text">准备就绪</span></div>
                 </header>
                 <div class="main">
                     <div class="sidebar">
-                        <h3>⚙️ 设置</h3>
-                        <div class="field">
-                            <label>API Key</label>
-                            <input type="password" id="api_key" value="{c['api_key']}">
+                        <div>
+                            <h3><i class="fas fa-cog"></i> 模型设置</h3>
+                            <div class="field"><label>API Key</label><input type="password" id="api_key" value="{c['api_key']}" placeholder="sk-..."></div>
+                            <div style="margin-top: 12px;" class="field"><label>Base URL</label><input type="text" id="base_url" value="{c['base_url']}"></div>
+                            <div style="margin-top: 12px;" class="field"><label>Model Name</label><input type="text" id="model_name" value="{c['model_name']}"></div>
+                            <div style="margin-top: 12px;" class="field"><label>API Type</label><select id="api_type"><option value="openai" {"selected" if c['api_type']=='openai' else ""}>OpenAI</option><option value="gemini" {"selected" if c['api_type']=='gemini' else ""}>Gemini</option></select></div>
                         </div>
-                        <div class="field">
-                            <label>Base URL</label>
-                            <input type="text" id="base_url" value="{c['base_url']}">
+                        <div style="margin-top: 10px; padding-top: 20px; border-top: 1px solid var(--border);">
+                            <h3><i class="fas fa-mobile-alt"></i> 设备设置</h3>
+                            <div class="field"><label>Device ID</label><input type="text" id="device_id" value="{c['device_id']}" placeholder="ADB Serial (可选)"></div>
+                            <div style="margin-top: 12px;" class="field"><label>最大步数</label><input type="number" id="max_steps" value="{c['max_steps']}"></div>
                         </div>
-                        <div class="field">
-                            <label>Model Name</label>
-                            <input type="text" id="model_name" value="{c['model_name']}">
-                        </div>
-                        <div class="field">
-                            <label>API Type</label>
-                            <select id="api_type">
-                                <option value="openai" {"selected" if c['api_type']=='openai' else ""}>OpenAI</option>
-                                <option value="gemini" {"selected" if c['api_type']=='gemini' else ""}>Gemini</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label>Device ID (Optional)</label>
-                            <input type="text" id="device_id" value="{c['device_id']}" placeholder="adb serial">
-                        </div>
-                        <div class="field">
-                            <label>Max Steps</label>
-                            <input type="number" id="max_steps" value="{c['max_steps']}">
-                        </div>
+                        <div style="flex:1"></div>
+                        <div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 10px;">Powered by Open-AutoGLM</div>
                     </div>
-                    
                     <div class="content">
-                        <div class="control-card">
-                            <div class="task-row">
-                                <input type="text" id="task_input" placeholder="请输入指令，例如：打开浏览器搜索今天的新闻">
-                                <button class="btn-run" id="run_btn" onclick="startTask()">开始运行</button>
-                            </div>
-                        </div>
-                        
+                        <div class="card task-card"><div class="task-row"><input type="text" id="task_input" placeholder="请输入指令..."><button class="btn-run" id="run_btn" onclick="startTask()"><i class="fas fa-play"></i> 开始运行</button></div></div>
+                        <div id="current_task_box" class="current-task-display" style="display: none;"><div class="task-label">正在执行任务</div><div id="display_task_text" class="task-text"></div></div>
                         <div class="output-grid">
-                            <div class="screen-box">
-                                <strong>实时画面:</strong>
-                                <img id="screenshot" src="/screenshot.png">
-                            </div>
-                            <div class="log-box" id="history">
-                                <strong>运行日志:</strong>
-                                <div id="history_list"></div>
-                            </div>
+                            <div class="card screen-box"><div class="box-header"><i class="fas fa-desktop"></i> 实时画面</div><div class="screen-container"><img id="screenshot" src="/screenshot.png"></div></div>
+                            <div class="card log-box"><div class="box-header"><i class="fas fa-list-ul"></i> 运行日志</div><div id="history_list"><div style="padding: 40px; text-align: center; color: var(--text-muted);"><i class="fas fa-terminal" style="font-size: 48px; margin-bottom: 16px; opacity: 0.2;"></i><p>等待任务开始...</p></div></div></div>
                         </div>
                     </div>
                 </div>
@@ -214,11 +234,44 @@ class SimpleHandler(http.server.SimpleHTTPRequestHandler):
 
             <script>
                 let lastHistoryLen = 0;
-                let lastStatus = false;
+                let lastStatus = null; // 修改为 null 以确保第一次 update 时强制刷新画面
+
+                // 页面加载时自动从 localStorage 恢复设置
+                window.addEventListener('DOMContentLoaded', () => {{
+                    const fields = ['api_key', 'base_url', 'model_name', 'api_type', 'device_id', 'max_steps'];
+                    fields.forEach(id => {{
+                        const saved = localStorage.getItem('autoglm_' + id);
+                        if (saved) {{
+                            document.getElementById(id).value = saved;
+                        }}
+                        
+                        // 监听输入，实时保存到缓存
+                        document.getElementById(id).addEventListener('input', (e) => {{
+                            localStorage.setItem('autoglm_' + id, e.target.value);
+                        }});
+                    }});
+                    
+                    // 加载后立即尝试同步一次手机屏幕
+                    fetch('/refresh_screen').then(() => {{
+                        document.getElementById('screenshot').src = "/screenshot.png?t=" + Date.now();
+                    }});
+                }});
+
+                function refreshScreen() {{
+                    fetch('/refresh_screen').then(() => {{
+                        document.getElementById('screenshot').src = "/screenshot.png?t=" + Date.now();
+                    }});
+                }}
 
                 function startTask() {{
+                    const task = document.getElementById('task_input').value;
+                    if (!task) return alert('请输入任务指令');
+                    
+                    // 启动前先刷新一次屏幕，确保画面是最新的
+                    refreshScreen();
+                    
                     const params = new URLSearchParams({{
-                        task: document.getElementById('task_input').value,
+                        task: task,
                         api_key: document.getElementById('api_key').value,
                         base_url: document.getElementById('base_url').value,
                         model_name: document.getElementById('model_name').value,
@@ -227,41 +280,78 @@ class SimpleHandler(http.server.SimpleHTTPRequestHandler):
                         max_steps: document.getElementById('max_steps').value,
                         lang: 'cn'
                     }});
+                    
                     fetch('/start?' + params.toString());
-                    document.getElementById('history_list').innerHTML = '<div class="step-item">🚀 正在启动 Agent...</div>';
+                    document.getElementById('current_task_box').style.display = 'block';
+                    document.getElementById('display_task_text').innerText = task;
+                    document.getElementById('history_list').innerHTML = '<div style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> 初始化中...</div>';
                     lastHistoryLen = 0;
                 }}
 
                 function update() {{
                     fetch('/state').then(r => r.json()).then(data => {{
                         const btn = document.getElementById('run_btn');
-                        const status = document.getElementById('status-badge');
-                        
                         if (btn.disabled !== data.running) {{
                             btn.disabled = data.running;
-                            status.innerText = data.running ? "● 正在运行" : "● 准备就绪";
-                            status.style.color = data.running ? "#f39c12" : "#10a37f";
+                            document.getElementById('status-text').innerText = data.running ? "正在运行" : "准备就绪";
+                            document.getElementById('status-dot').style.color = data.running ? "#f39c12" : "#10a37f";
                         }}
-                        
+                        if (data.current_task) {{
+                            document.getElementById('current_task_box').style.display = 'block';
+                            document.getElementById('display_task_text').innerText = data.current_task;
+                        }}
                         if (data.running || lastStatus !== data.running) {{
                             document.getElementById('screenshot').src = "/screenshot.png?t=" + Date.now();
                         }}
                         lastStatus = data.running;
-                        
                         if (data.history.length !== lastHistoryLen) {{
                             let html = "";
-                            data.history.forEach((step, idx) => {{
-                                html = `<div class="step-item">
-                                    <div class="step-num">Step ${{idx + 1}}</div>
-                                    <div class="thought">🤔 ${{step.thinking}}</div>
-                                    ${{step.action ? `<div>🎯 动作: <span class="action-tag">${{step.action.action}}</span></div>` : ""}}
-                                    ${{step.message ? `<div style="margin-top:5px">💬 ${{step.message}}</div>` : ""}}
-                                </div>` + html;
+                            const history = [...data.history].reverse();
+                            history.forEach((step, idx) => {{
+                                const stepIdx = data.history.length - idx;
+                                const isSuccess = step.success !== false;
+                                const thinking = step.thinking || "";
+                                const actionName = (step.action && step.action.action) ? step.action.action : (step.action && step.action._metadata === 'finish' ? 'Finish' : 'None');
+                                const actionThought = (step.action && step.action.thought) ? step.action.thought : "";
+                                
+                                html += `
+                                    <div class="step-item">
+                                        <div class="step-header">
+                                            <span class="step-num">STEP ${{stepIdx}}</span>
+                                            <span class="step-status ${{isSuccess ? 'status-success' : 'status-fail'}}">
+                                                <i class="fas ${{isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle'}}"></i>
+                                                ${{isSuccess ? '成功' : '失败'}}
+                                            </span>
+                                        </div>
+                                        
+                                        ${{thinking ? `
+                                        <div class="thought-container">
+                                            <div class="thought-text">${{thinking}}</div>
+                                        </div>` : ""}}
+
+                                        <div class="action-info">
+                                            <div style="width: 100%;">
+                                                <div style="display:flex; align-items:center; gap:8px; margin-bottom: 4px;">
+                                                    <span class="action-tag" style="${{actionName === 'Finish' ? 'background:#10a37f;color:white;' : ''}}">${{actionName}}</span>
+                                                    ${{actionThought ? `<span style="color: #10a37f; font-weight: 500; font-size: 13px;"><i class="fas fa-comment-dots"></i> ${{actionThought}}</span>` : ""}}
+                                                </div>
+                                                
+                                                <div style="font-size: 12px; color: #666; margin-left: 2px;">
+                                                    ${{step.action && step.action.text ? `<span><i class="fas fa-keyboard"></i> 内容: "${{step.action.text}}"</span>` : ""}}
+                                                    ${{step.action && step.action.point ? `<span style="margin-left:8px;"><i class="fas fa-mouse-pointer"></i> 坐标: [${{step.action.point[0]}}, ${{step.action.point[1]}}]</span>` : ""}}
+                                                </div>
+
+                                                ${{step.message ? `<div class="action-msg" style="margin-top: 8px; padding: 8px; background: #f0f7ff; border-radius: 6px; color: #0056b3;">
+                                                    <i class="fas fa-info-circle"></i> ${{step.message}}
+                                                </div>` : ""}}
+                                            </div>
+                                        </div>
+                                    </div>`;
                             }});
-                            document.getElementById('history_list').innerHTML = html || "等待任务开始...";
+                            document.getElementById('history_list').innerHTML = html;
                             lastHistoryLen = data.history.length;
                         }}
-                    }});
+                    }}).catch(e => console.error(e));
                 }}
                 setInterval(update, 2000);
             </script>
@@ -272,6 +362,7 @@ class SimpleHandler(http.server.SimpleHTTPRequestHandler):
 def run_agent_thread(task, config):
     state['running'] = True
     state['history'] = []
+    state['current_task'] = task
     
     try:
         model_cfg = ModelConfig(
@@ -298,7 +389,7 @@ def run_agent_thread(task, config):
             _update_step(result)
             
     except Exception as e:
-        state['history'].append({"thinking": f"错误: {str(e)}", "action": None, "message": "已停止"})
+        state['history'].append({"thinking": f"错误: {str(e)}", "action": None, "message": "已停止", "success": False})
     
     state['running'] = False
 
@@ -329,7 +420,8 @@ def _update_step(result):
     state['history'].append({
         "thinking": result.thinking,
         "action": result.action,
-        "message": result.message
+        "message": result.message,
+        "success": result.success
     })
 
     # 发送通知到手机系统
@@ -346,7 +438,16 @@ def _update_step(result):
 if __name__ == "__main__":
     PORT = 7860
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), SimpleHandler) as httpd:
-        print(f"🚀 全功能 Lite 版已启动!")
-        print(f"📱 请访问: http://localhost:{{PORT}}")
+    httpd = socketserver.TCPServer(("", PORT), SimpleHandler)
+    
+    print(f"🚀 全功能 Lite 版已启动!")
+    print(f"📱 请访问: http://localhost:{PORT}")
+    print(f"🛑 按下 Ctrl+C 可停止服务器")
+    
+    try:
         httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n正在关闭服务器...")
+        httpd.shutdown()
+        httpd.server_close()
+        print("已退出。")

@@ -2,6 +2,123 @@
 
 [中文阅读.](./README.md)
 
+## Project Introduction
+
+Open-AutoGemini is an open-source mobile intelligent assistant framework driven by Gemini. It supports Android, iOS, and HarmonyOS, multimodally understanding mobile screen content, and utilizing Gemini's native Tool Calling and Thinking capabilities to automatically perform actions like tap, swipe, and type to help users complete complex tasks.
+
+### Core Advantages (Gemini Driven)
+- **Minimalist Deployment**: No local GPU required; runs on standard computers with just an API Key.
+- **Superior Understanding**: Leverages Gemini 3 series' powerful visual understanding to precisely identify UI elements.
+- **Native Chain-of-Thought**: Supports model thinking before actions, resulting in higher task success rates.
+- **Cross-Platform**: A single framework supporting Android, iOS, and HarmonyOS.
+
+---
+
+## 🚀 Quick Start (Gemini Recommended)
+
+### 1. Get Gemini API Key
+Visit [Google AI Studio](https://aistudio.google.com/app/apikey) to apply for your free API Key.
+
+### 2. Environment Setup
+Ensure your computer has Python 3.10+ installed and your phone is connected (with USB debugging enabled). For detailed steps, see [Environment Setup](#environment-setup).
+
+### 3. Installation & Running
+```bash
+# Clone the project
+git clone https://github.com/zai-org/Open-AutoGemini.git
+cd Open-AutoGemini
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -e .
+
+# Start (Using Gemini 3 Flash)
+python main.py --api-type gemini --model gemini-3-flash-preview --apikey "YOUR_GEMINI_API_KEY"
+```
+
+---
+
+## 🌐 Web UI (Visual Interface)
+
+If you prefer operating through a browser and viewing the phone screen and Agent's thinking process in real-time, you can use the built-in Web UI.
+
+```bash
+# Start Web UI
+python web_ui.py
+# Start simple Web UI
+python web_ui_simple.py
+```
+After starting, access `http://localhost:7860` in your browser. Configure your API Key and model info on the left, then enter your task in the main area to begin.
+
+---
+
+## Usage Guide
+
+### Command Line Usage
+```bash
+# Interactive mode
+python main.py --api-type gemini --model gemini-3-flash-preview --apikey "..."
+
+# Execute specific task
+python main.py --api-type gemini --apikey "..." "Help me send this photo to John on WhatsApp"
+
+# Switch language (supports Chinese 'cn' and English 'en')
+python main.py --api-type gemini --lang en "Open Chrome and search for Gemini"
+```
+
+### Python API Usage
+```python
+from phone_agent import PhoneAgent
+from phone_agent.model import ModelConfig
+
+# Configure Gemini
+model_config = ModelConfig(
+    api_type="gemini",
+    model_name="gemini-3-flash-preview",
+    api_key="YOUR_GEMINI_API_KEY"
+)
+
+# Create and run Agent
+agent = PhoneAgent(model_config=model_config)
+agent.run("Open Maps and search for nearby coffee shops")
+```
+
+---
+
+<a name="environment-setup"></a>
+## Environment Setup
+
+### 1. Basic Dependencies
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+### 2. Android / HarmonyOS Devices
+- Enable **Developer Options** and **USB Debugging**.
+- For Android, it's recommended to install [ADB Keyboard](https://github.com/senzhk/ADBKeyBoard/blob/master/ADBKeyboard.apk) for text input support.
+- For details, see [Android Detailed Configuration](#android-setup).
+
+### 3. iOS Devices
+- Requires Xcode and WebDriverAgent installation.
+- For details, see [iOS Detailed Configuration](#ios-setup).
+
+---
+
+## More Features
+- **Web UI**: Run `python web_ui.py` to open the graphical interface.
+- **Remote Debugging**: Supports remote ADB/HDC debugging via WiFi.
+- **Sensitive Operation Confirmation**: Built-in manual takeover mechanism for secure scenarios like payment or login.
+
+---
+
+# Appendix: Original Open-AutoGLM Content (AutoGLM Related)
+
+If you wish to use the Zhipu AutoGLM model or perform local deployment, please refer to the following original documentation.
+
+<details>
+<summary>Click to expand original project README</summary>
+
 <div align="center">
 <img src=resources/logo.svg width="20%"/>
 </div>
@@ -18,7 +135,7 @@ Access the documentation and install Open-AutoGemini for me
 https://raw.githubusercontent.com/zai-org/Open-AutoGemini/refs/heads/main/README_en.md
 ```
 
-## Project Introduction
+## Project Introduction (Original)
 
 Open-AutoGemini is an open-source mobile intelligent assistant framework that supports Android, iOS, and HarmonyOS. It understands mobile screen content multimodally and can be driven by Google Gemini or Zhipu AutoGLM models to help users complete tasks through automated operations.
 
@@ -46,7 +163,8 @@ This project is a functional enhancement and secondary development based on [Ope
 
 `AutoGLM-Phone-9B` is optimized for Chinese mobile applications, while `AutoGLM-Phone-9B-Multilingual` supports English scenarios and is suitable for applications containing English or other language content.
 
-## Environment Setup
+<a name="android-setup"></a>
+## Environment Setup (Original)
 
 ### 1. Python Environment
 
@@ -104,7 +222,8 @@ If you are using an Android device:
 Download the [installation package](https://github.com/senzhk/ADBKeyBoard/blob/master/ADBKeyboard.apk) and install it on the corresponding Android device.
 Note: After installation, you need to enable `ADB Keyboard` in `Settings > Input Method` or `Settings > Keyboard List` for it to work.(or use command `adb shell ime enable com.android.adbkeyboard/.AdbIME`[How-to-use](https://github.com/senzhk/ADBKeyBoard/blob/master/README.md#how-to-use))
 
-## Deployment Preparation
+<a name="ios-setup"></a>
+## Deployment Preparation (Original)
 
 ### 1. Install Dependencies
 
@@ -233,7 +352,7 @@ python scripts/check_deployment_en.py --base-url https://api.parasail.io/v1 --mo
 
 Upon successful execution, the script will display the model's inference result and token statistics, helping you confirm whether the model deployment is working correctly.
 
-## Using AutoGLM
+## Using AutoGLM (Original)
 
 ### Command Line
 
@@ -265,7 +384,7 @@ python main.py --list-apps
 python main.py --device-type hdc --list-apps
 ```
 
-### Python API
+### Python API (Original)
 
 ```python
 from phone_agent import PhoneAgent
@@ -285,7 +404,7 @@ result = agent.run("Open eBay and search for wireless earphones")
 print(result)
 ```
 
-## Remote Debugging
+## Remote Debugging (Original)
 
 Phone Agent supports remote ADB/HDC debugging via WiFi/network, allowing device control without a USB connection.
 
@@ -425,7 +544,7 @@ conn.disconnect("192.168.1.100:5555")
 - Use `--device-id` to specify which device to use
 - Or use `--list-devices` to view all connected devices
 
-## Configuration
+## Configuration (Original)
 
 ### Custom SYSTEM PROMPT
 
@@ -448,7 +567,7 @@ You can directly modify the corresponding config files to enhance model capabili
 | `PHONE_AGENT_DEVICE_TYPE`   | Device type (`adb` or `hdc`)| `adb`                    |
 | `PHONE_AGENT_LANG`          | Language (`cn` or `en`)   | `en`                       |
 
-### Model Configuration
+### Model Configuration (Original)
 
 ```python
 from phone_agent.model import ModelConfig
@@ -463,7 +582,7 @@ config = ModelConfig(
 )
 ```
 
-### Agent Configuration
+### Agent Configuration (Original)
 
 ```python
 from phone_agent.agent import AgentConfig
@@ -516,7 +635,7 @@ eBay is now open, need to tap the search box
 
 This allows you to clearly see the AI's reasoning process and specific operations at each step.
 
-## Supported Apps
+## Supported Apps (Original)
 
 ### Android Apps
 
@@ -551,7 +670,7 @@ Phone Agent supports 60+ HarmonyOS native apps and system apps:
 
 Run `python main.py --device-type hdc --list-apps` to see the complete list.
 
-## Available Actions
+## Available Actions (Original)
 
 The Agent can perform the following actions:
 
@@ -559,7 +678,7 @@ The Agent can perform the following actions:
 |----------------|------------------------------------------|
 | `Launch`       | Launch an app                            |  
 | `Tap`          | Tap at specified coordinates             |
-| `Type`         | Input text                               |
+| `Type`       | Input text                               |
 | `Swipe`        | Swipe the screen                         |
 | `Back`         | Go back to previous page                 |
 | `Home`         | Return to home screen                    |
@@ -568,7 +687,7 @@ The Agent can perform the following actions:
 | `Wait`         | Wait for page to load                    |
 | `Take_over`    | Request manual takeover (login/captcha)  |
 
-## Custom Callbacks
+## Custom Callbacks (Original)
 
 Handle sensitive operation confirmation and manual takeover:
 
@@ -590,7 +709,7 @@ agent = PhoneAgent(
 )
 ```
 
-## Examples
+## Examples (Original)
 
 Check the `examples/` directory for more usage examples:
 
@@ -599,7 +718,7 @@ Check the `examples/` directory for more usage examples:
 - Batch task execution
 - Custom callbacks
 
-## Development
+## Development (Original)
 
 ### Set Up Development Environment
 
@@ -636,7 +755,7 @@ phone_agent/
     └── client.py        # OpenAI-compatible client
 ```
 
-## FAQ
+## FAQ (Original)
 
 Here are some common issues and their solutions:
 
@@ -691,7 +810,7 @@ If you find our work helpful, please cite the following papers:
 ```bibtex
 @article{liu2024autoglm,
   title={Autoglm: Autonomous foundation agents for guis},
-  author={Liu, Xiao and Qin, Bo and Liang, Dongzhu and Dong, Guang and Lai, Hanyu and Zhang, Hanchen and Zhao, Hanlin and Iong, Iat Long and Sun, Jiadai and Wang, Jiaqi and others},
+  author={Liu, Xiao and Qin, Bo and Liang, Dongzhu and Dong, Guang and Lai, Hanyu and Zhang, Hanchen and Zhao, Hanlin and Iong, Iat Long and Sun, Jiadai and others},
   journal={arXiv preprint arXiv:2411.00820},
   year={2024}
 }
@@ -933,3 +1052,5 @@ python main.py --list-apps
 ---
 
 **Deployment success indicator: The phone can automatically execute user's natural language instructions.**
+
+</details>

@@ -66,3 +66,6 @@ app_package_name.py
 
 .claude/
 .venv
+
+latest_screenshot.png
+ui_config.json

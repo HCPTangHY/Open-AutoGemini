@@ -2,13 +2,128 @@
 
 [Readme in English](README_en.md)
 
+
+## 项目介绍
+
+Open-AutoGemini 是一个基于 Gemini 驱动的开源手机端智能助理框架。它支持 Android、iOS 和鸿蒙 (HarmonyOS) 系统，能够通过多模态方式理解手机屏幕内容，并利用 Gemini 的原生 Tool Calling 和 Thinking 能力，自动执行点击、滑动、输入等操作，帮助用户完成各种复杂任务。
+
+### 核心优势 (Gemini 驱动)
+- **极简部署**: 无需本地 GPU，只需一个 API Key 即可在普通电脑上运行。
+- **超强理解**: 利用 Gemini 3 系列的强大视觉理解能力，精准识别 UI 元素。
+- **原生思维链**: 支持模型在执行动作前进行思考 (Thinking)，任务完成率更高。
+- **多端通用**: 一套框架同时支持 Android, iOS 和鸿蒙系统。
+
+---
+
+## 🚀 快速开始 (Gemini 推荐)
+
+### 1. 获取 Gemini API Key
+前往 [Google AI Studio](https://aistudio.google.com/app/apikey) 免费申请你的 API Key。
+
+### 2. 环境准备
+确保你的电脑已安装 Python 3.10+，并已连接手机 (开启 USB 调试)。详细步骤请参考 [环境准备](#环境准备)。
+
+### 3. 安装与运行
+```bash
+# 克隆项目
+git clone https://github.com/zai-org/Open-AutoGemini.git
+cd Open-AutoGemini
+
+# 安装依赖
+pip install -r requirements.txt
+pip install -e .
+
+# 启动 (使用 Gemini 2.0 Flash)
+python main.py --api-type gemini --model gemini-3-flash-preview --apikey "你的_GEMINI_API_KEY"
+```
+
+---
+
+## 🌐 Web UI 交互 (可视化界面)
+
+如果你喜欢通过浏览器进行操作，并实时查看手机画面和 Agent 的思考过程，可以使用内置的 Web UI。
+
+```bash
+# 启动 Web UI
+python web_ui.py
+# 启动简单 Web UI
+python web_ui_simple.py
+```
+启动后，在浏览器访问 `http://localhost:7860` 即可进入交互界面。在界面左侧配置你的 API Key 和模型信息，然后在主界面输入任务即可开始。
+
+---
+
+## 使用指南
+
+### 命令行用法
+```bash
+# 交互模式
+python main.py --api-type gemini --model gemini-3-flash-preview --apikey "..."
+
+# 执行特定任务
+python main.py --api-type gemini --apikey "..." "帮我把这张照片发给微信上的张三"
+
+# 切换语言 (支持中文 cn 和英文 en)
+python main.py --api-type gemini --lang en "Open Chrome and search for Gemini"
+```
+
+### Python API 用法
+```python
+from phone_agent import PhoneAgent
+from phone_agent.model import ModelConfig
+
+# 配置 Gemini
+model_config = ModelConfig(
+    api_type="gemini",
+    model_name="gemini-3-flash-preview",
+    api_key="YOUR_GEMINI_API_KEY"
+)
+
+# 创建并运行 Agent
+agent = PhoneAgent(model_config=model_config)
+agent.run("打开美团搜索附近的火锅")
+```
+
+---
+
+## 环境准备
+
+### 1. 基础依赖
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+### 2. Android / 鸿蒙设备
+- 开启 **开发者选项** 和 **USB 调试**。
+- Android 建议安装 [ADB Keyboard](https://github.com/senzhk/ADBKeyBoard/blob/master/ADBKeyboard.apk) 以支持中文输入。
+- 详情请查看 [Android 详细配置指南](#android-详细配置指南)。
+
+### 3. iOS 设备
+- 需要安装 Xcode 和 WebDriverAgent。
+- 详情请查看 [iOS 详细配置指南](#iphone-详细配置指南)。
+
+---
+
+## 更多功能
+- **Web UI**: 运行 `python web_ui.py` 开启图形化操作界面。
+- **远程调试**: 支持通过 WiFi 连接 ADB/HDC 设备，实现无线控制。
+- **敏感操作确认**: 内置人工接管机制，保障支付、登录等场景安全。
+
+---
+
+# 附录：原 Open-AutoGLM 内容 (AutoGLM 相关)
+
+如果你希望使用智谱 AutoGLM 模型或进行本地部署，请参考以下原始文档内容。
+
+<details>
+<summary>点击展开原项目 README</summary>
 <div align="center">
 <img src=resources/logo.svg width="20%"/>
 </div>
 <p align="center">
     👋 加入我们的 <a href="resources/WECHAT.md" target="_blank">微信</a> 社区
 </p>
-
 ## 懒人版快速安装
 
 你可以使用Claude Code，配置 [GLM Coding Plan](https://bigmodel.cn/glm-coding) 后，输入以下提示词，快速部署本项目。
@@ -18,7 +133,7 @@
 https://raw.githubusercontent.com/zai-org/Open-AutoGemini/refs/heads/main/README.md
 ```
 
-## 项目介绍
+## 项目介绍 (原)
 
 Open-AutoGemini 是一个开源的手机端智能助理框架，支持 Android、iOS 和鸿蒙 (HarmonyOS) 系统。它能够以多模态方式理解手机屏幕内容，并支持通过 Google Gemini 或智谱 AutoGLM 模型驱动，通过自动化操作帮助用户完成任务。
 
@@ -47,6 +162,7 @@ Open-AutoGemini 是一个开源的手机端智能助理框架，支持 Android�
 
 其中，`AutoGLM-Phone-9B` 是针对中文手机应用优化的模型，而 `AutoGLM-Phone-9B-Multilingual` 支持英语场景，适用于包含英文等其他语言内容的应用。
 
+<a name="android-详细配置指南"></a>
 ## Android 环境准备
 
 ### 1. Python 环境
@@ -107,6 +223,7 @@ Open-AutoGemini 是一个开源的手机端智能助理框架，支持 Android�
 下载 [安装包](https://github.com/senzhk/ADBKeyBoard/blob/master/ADBKeyboard.apk) 并在对应的安卓设备中进行安装。
 注意，安装完成后还需要到 `设置-输入法` 或者 `设置-键盘列表` 中启用 `ADB Keyboard` 才能生效(或使用命令`adb shell ime enable com.android.adbkeyboard/.AdbIME`[How-to-use](https://github.com/senzhk/ADBKeyBoard/blob/master/README.md#how-to-use))
 
+<a name="iphone-详细配置指南"></a>
 ## iPhone 环境准备
 
 ### 1. Python 环境
@@ -292,7 +409,7 @@ python3 -m sglang.launch_server --model-path  zai-org/AutoGLM-Phone-9B \
 - 该模型结构与 `GLM-4.1V-9B-Thinking` 相同, 关于模型部署的详细内容，你也以查看 [GLM-V](https://github.com/zai-org/GLM-V)
   获取模型部署和使用指南。
 
-- 运行成功后，将可以通过 `http://localhost:8000/v1` 访问模型服务。 如果您在远程服务器部署模型, 使用该服务器的IP访问模型.
+- 运行成功后，将可以通过 `http://localhost:8000/v1` 访问模型服务. 如果您在远程服务器部署模型, 使用该服务器的IP访问模型.
 
 ### 4. 检查模型部署
 
@@ -325,7 +442,7 @@ python scripts/check_deployment_cn.py --base-url http://你的IP:你的端口/v1
 - `--model`: 模型名称
 - `--messages-file`: 可选，指定自定义测试消息文件(默认使用 `scripts/sample_messages.json`)
 
-## 使用 AutoGLM
+## 使用 Open-AutoGemini (原)
 
 ### 命令行
 
@@ -357,7 +474,7 @@ python main.py --list-apps
 python main.py --device-type hdc --list-apps
 ```
 
-### Python API
+### Python API (原)
 
 ```python
 from phone_agent import PhoneAgent
@@ -377,7 +494,7 @@ result = agent.run("打开淘宝搜索无线耳机")
 print(result)
 ```
 
-## 远程调试
+## 远程调试 (原)
 
 Phone Agent 支持通过 WiFi/网络进行远程 ADB/HDC 调试，无需 USB 连接即可控制设备。
 
@@ -517,7 +634,7 @@ conn.disconnect("192.168.1.100:5555")
 - 使用 `--device-id` 指定要使用的设备
 - 或使用 `--list-devices` 查看所有已连接设备
 
-## 配置
+## 配置 (原)
 
 ### 自定义SYSTEM PROMPT
 
@@ -540,7 +657,7 @@ conn.disconnect("192.168.1.100:5555")
 | `PHONE_AGENT_DEVICE_TYPE`   | 设备类型 (`adb` 或 `hdc`)   | `adb`                      |
 | `PHONE_AGENT_LANG`          | 语言 (`cn` 或 `en`)       | `cn`                       |
 
-### 模型配置
+### 模型配置 (原)
 
 ```python
 from phone_agent.model import ModelConfig
@@ -555,7 +672,7 @@ config = ModelConfig(
 )
 ```
 
-### Agent 配置
+### Agent 配置 (原)
 
 ```python
 from phone_agent.agent import AgentConfig
@@ -608,7 +725,7 @@ config = AgentConfig(
 
 这样可以清楚地看到 AI 的推理过程和每一步的具体操作。
 
-## 支持的应用
+## 支持的应用 (原)
 
 ### Android 应用
 
@@ -646,7 +763,7 @@ Phone Agent 支持 60+ 款鸿蒙原生应用和系统应用：
 
 运行 `python main.py --device-type hdc --list-apps` 查看完整列表。
 
-## 可用操作
+## 可用操作 (原)
 
 Agent 可以执行以下操作：
 
@@ -663,7 +780,7 @@ Agent 可以执行以下操作：
 | `Wait`       | 等待页面加载          |
 | `Take_over`  | 请求人工接管(登录/验证码等) |
 
-## 自定义回调
+## 自定义回调 (原)
 
 处理敏感操作确认和人工接管：
 
@@ -685,7 +802,7 @@ agent = PhoneAgent(
 )
 ```
 
-## 示例
+## 示例 (原)
 
 查看 `examples/` 目录获取更多使用示例：
 
@@ -694,7 +811,7 @@ agent = PhoneAgent(
 - 批量任务执行
 - 自定义回调
 
-## 二次开发
+## 二次开发 (原)
 
 ### 配置开发环境
 
@@ -731,7 +848,7 @@ phone_agent/
     └── client.py        # OpenAI 兼容客户端
 ```
 
-## 常见问题
+## 常见问题 (原)
 
 我们列举了一些常见的问题，以及对应的解决方案：
 
@@ -783,7 +900,7 @@ adb devices
 
 解决办法: 使用非交互模式直接指定任务, 或者切换到 TTY 模式的终端应用.
 
-### 引用
+## 引用
 
 如果你觉得我们的工作有帮助，请引用以下论文：
 
@@ -836,7 +953,7 @@ Open-AutoGemini 是一个手机 Agent 框架：
 
 #### 手机端配置
 - [ ] 手机已开启「开发者模式」(设置 → 关于手机 → 连续点击版本号 7 次)
-- [ ] 手机已开启「USB 调试」(设置 → 开发者选项 → USB 调试)
+- [ ] 手机已开启「USB 调试」(设置 → 开发者选��� → USB 调试)
 - [ ] 部分机型需要同时开启「USB 调试(安全设置)」
 - [ ] 手机已安装 ADB Keyboard 应用(下载地址：https://github.com/senzhk/ADBKeyBoard/blob/master/ADBKeyboard.apk)
 - [ ] ADB Keyboard 已在系统设置中启用(设置 → 语言和输入法 → 启用 ADB Keyboard)
@@ -1023,3 +1140,5 @@ python main.py --list-apps
 ---
 
 **部署完成的标志：手机能自动执行用户的自然语言指令。**
+
+</details>
