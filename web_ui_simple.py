@@ -338,7 +338,7 @@ class SimpleHandler(http.server.SimpleHTTPRequestHandler):
                                                 
                                                 <div style="font-size: 12px; color: #666; margin-left: 2px;">
                                                     ${{step.action && step.action.text ? `<span><i class="fas fa-keyboard"></i> 内容: "${{step.action.text}}"</span>` : ""}}
-                                                    ${{step.action && step.action.point ? `<span style="margin-left:8px;"><i class="fas fa-mouse-pointer"></i> 坐标: [${{step.action.point[0]}}, ${{step.action.point[1]}}]</span>` : ""}}
+                                                    ${{step.action && (step.action.point || step.action.start) ? `<span style="margin-left:8px;"><i class="fas fa-mouse-pointer"></i> 坐标: [${{ (step.action.point || step.action.start)[0] }}, ${{ (step.action.point || step.action.start)[1] }}]</span>` : ""}}
                                                 </div>
 
                                                 ${{step.message ? `<div class="action-msg" style="margin-top: 8px; padding: 8px; background: #f0f7ff; border-radius: 6px; color: #0056b3;">
